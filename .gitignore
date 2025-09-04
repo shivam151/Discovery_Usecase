@@ -1,0 +1,50 @@
+data
+.venv
+temp
+uploads
+chroma_db
+__pycache__
+*.db
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+/node_modules
+node_modules/
+/.pnp
+.pnp.js
+venv
+# Local Environment Variables
+# Exclude local environment variables, but keep the example file
+.env.local
+.env.*.local
+!/.env.example
+
+# Next.js build output
+/.next/
+.next/
+/out/
+
+# Static HTML export files
+/export/
+
+# Turborepo
+.turbo
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode/*
+!.vscode/settings.json
+
+# System files
+.DS_Store
+Thumbs.db
+.env
+
+question.json
+documents.json
+questions_final.json

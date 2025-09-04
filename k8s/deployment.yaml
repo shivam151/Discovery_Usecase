@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-backend
+  template:
+    metadata:
+      labels:
+        app: discovery-backend
+    spec:
+      containers:
+      - name: discovery-backend
+        image: 042889969014.dkr.ecr.us-east-1.amazonaws.com/discovery-backend:20250826110446
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            cpu: "100m"                # Minimum CPU guaranteed
+            memory: "128Mi"            # Minimum memory guaranteed
+            ephemeral-storage: "200Mi" # Minimum disk space guaranteed
+          limits:
+            cpu: "500m"                # Max CPU allowed
+            memory: "1000Mi"            # Max memory allowed
+            ephemeral-storage: "500Mi" # Max disk space allowed
+        env:
+          - name: "AWS_REGION"
+            value: "us-east-1"
+          - name: "S3_BUCKET_NAME"
+            value: "ai-assessment-accelerator"
+          - name: GOOGLE_API_KEY
+            valueFrom:
+              secretKeyRef:
+                key: GOOGLE_API_KEY
+                name: discovery-backend-secret
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                key: DB_HOST
+                name: discovery-backend-secret
+          - name: DB_PORT
+            valueFrom:
+              secretKeyRef:
+                key: DB_PORT
+                name: discovery-backend-secret
+          - name: DB_NAME
+            valueFrom:
+              secretKeyRef:
+                key: DB_NAME
+                name: discovery-backend-secret
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                key: DB_USER
+                name: discovery-backend-secret
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: DB_PASSWORD
+                name: discovery-backend-secret
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                key: AWS_ACCESS_KEY_ID
+                name: discovery-backend-secret
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                key: AWS_SECRET_ACCESS_KEY
+                name: discovery-backend-secret
+        volumeMounts:
+          - mountPath: /etc/discovery-backend-secret
+            name: discovery-backend-secret
+            readOnly: true
+      serviceAccountName: mcp-poc
+      volumes:
+        - csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: discovery-backend-spc
+          name: discovery-backend-secret
+---

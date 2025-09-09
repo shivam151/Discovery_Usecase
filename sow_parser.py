@@ -767,14 +767,25 @@ class SOWParser:
                     text = self._extract_text_from_txt(file_content)
                 elif file_extension in ['.xlsx', '.xls']: 
                     result = self.extract_text_from_excel(file_content,f"file{file_extension}")
+                    if result.get('status_code') == 400:
+                        return {
+                            "status_code": 400,
+                            "message": result.get('message'),
+                            "data": result.get('data')
+                        }
                     text = result["text"]  
                 elif file_extension == '.csv':
                     result = self.extract_text_from_csv(file_content,f"file{file_extension}")  
+                    if result.get('status_code') == 400:
+                        return {
+                            "status_code": 400,
+                            "message": result.get('message'),
+                            "data": result.get('data')
+                        }
                     text = result["text"]  
                 else:
                     raise ValueError(f"Unexpected file format: {file_extension} for file: {filename}")
                 
-                # Process text with Gemini API
                 logger.info(f"Processing text with Gemini API for file: {filename}")
                 sow_data = self._process_with_gemini(text)
                 logger.info(f"SOW parsing completed successfully for file: {filename}")

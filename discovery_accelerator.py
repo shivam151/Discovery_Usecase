@@ -123,7 +123,7 @@ class DiscoveryAccelerator:
                     doc_file = BytesIO(response.content)
                     doc_filename = doc_url.split("/")[-1].split("?")[0]
                     doc_extension = os.path.splitext(doc_filename)[1].lower()
-                    if doc_extension not in ['.pdf', '.docx', '.pptx' ,'.txt' ]:
+                    if doc_extension not in ['.pdf', '.docx', '.pptx' ,'.txt','.xlsx',' .xls', '.csv']:
                         logger.warning(f"Skipping document {doc_filename} due to unsupported format: {doc_extension}")
                         continue
                     logger.info(f"Processing additional document: {doc_filename}")
@@ -540,7 +540,7 @@ class DiscoveryAccelerator:
                 # Extract and validate filename
                 doc_filename = doc_url.split("/")[-1].split("?")[0]
                 doc_extension = os.path.splitext(doc_filename)[1].lower()
-                if doc_extension not in ['.pdf', '.docx', '.pptx' ,'.txt']:
+                if doc_extension not in ['.pdf', '.docx', '.pptx' ,'.txt','.xlsx', '.xls', '.csv']:
                     logger.warning(f"Skipping document {doc_filename} due to unsupported format: {doc_extension}")
                     invalid_urls.append({"url": doc_url, "error": f"Unsupported file format: {doc_extension}"})
                     continue

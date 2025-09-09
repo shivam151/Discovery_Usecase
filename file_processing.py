@@ -869,13 +869,63 @@ class ProjectDataPipeline:
             self.logger.error(f"Error answering question with Gemini: {str(e)}")
             return f"Error answering question: {str(e)}"
     
+    # def process_project(self, project_name: str, s3_prefix: str, project_owner: str, sow_data: Dict) -> Dict:
+    #     """Process all files in an S3 prefix with memory management"""
+    #     self.logger.info(f"\n==== Processing project: {project_name} ====\nS3 Prefix: {s3_prefix}")
+        
+    #     documents = []
+    #     document_requirement_matches = {}
+
+        
+    #     # List objects in S3 prefix
+    #     try:
+    #         response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=s3_prefix)
+    #         if 'Contents' not in response:
+    #             self.logger.warning(f"No files found in S3 prefix: {s3_prefix}")
+    #             return {'document_requirement_matches': {}, 'documents': []}
+            
+    #         files = [obj['Key'] for obj in response.get('Contents', [])]
+    #         self.logger.info(f"Found {len(files)} files to process: {[os.path.basename(f) for f in files]}")
+            
+    #         for s3_key in files:
+    #             try:
+    #                 result = self.parse_file(s3_key, sow_data)
+    #                 if result:
+    #                     documents.append({
+    #                         'content': result['extracted_content'],
+    #                         'type': 'text',
+    #                         'source': s3_key
+    #                     })
+    #                     if 'requirement_matches' in result:
+    #                         document_requirement_matches.update(result['requirement_matches'])
+    #                 self.clear_memory()
+    #             except Exception as e:
+    #                 self.logger.error(f"Error processing file {s3_key}: {str(e)}")
+    #                 continue
+            
+    #         # Create embeddings but do not store in ChromaDB
+    #         if documents:
+    #             embed_data = self.create_embeddings(documents)
+    #             self.logger.info(f"Created embeddings for compatibility, but not storing in ChromaDB")
+            
+    #         self.logger.info(f"\n==== Completed processing project: {project_name} ====\n")
+    #         return {'document_requirement_matches': document_requirement_matches, 'documents': documents}
+        
+    #     except Exception as e:
+    #         self.logger.error(f"Error processing project {project_name}: {str(e)}")
+    #         return {'document_requirement_matches': {}, 'documents': []}
     def process_project(self, project_name: str, s3_prefix: str, project_owner: str, sow_data: Dict) -> Dict:
         """Process all files in an S3 prefix with memory management"""
         self.logger.info(f"\n==== Processing project: {project_name} ====\nS3 Prefix: {s3_prefix}")
         
         documents = []
         document_requirement_matches = {}
-        
+
+        # Validate s3_prefix
+        if not isinstance(s3_prefix, str) or not s3_prefix.strip():
+            self.logger.error(f"Invalid S3 prefix: {s3_prefix}. It must be a non-empty string.")
+            return {'document_requirement_matches': {}, 'documents': []}
+
         # List objects in S3 prefix
         try:
             response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=s3_prefix)
@@ -913,7 +963,7 @@ class ProjectDataPipeline:
         except Exception as e:
             self.logger.error(f"Error processing project {project_name}: {str(e)}")
             return {'document_requirement_matches': {}, 'documents': []}
-    
+        
     def _get_s3_object(self, s3_key: str) -> bytes:
         """Retrieve an object from S3"""
         try:
@@ -934,7 +984,7 @@ class ProjectDataPipeline:
             file_extension = os.path.splitext(s3_key)[1].lower()
             
             # Process based on file extension
-            if file_extension not in ['.pdf', '.docx', '.pptx', '.txt']:
+            if file_extension not in ['.pdf', '.docx', '.pptx', '.txt','xlsx','.xls']:
                 self.logger.warning(f"Unsupported file type {file_extension} for {s3_key}")
                 return {}
             
@@ -958,6 +1008,12 @@ class ProjectDataPipeline:
                     mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 elif file_extension == '.pptx':
                     mime_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                elif file_extension == '.xlsx':
+                    mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                elif file_extension == '.xls':
+                    mime_type = 'application/vnd.ms-excel'
+                elif file_extension == '.csv':
+                    mime_type = 'text/csv'
                 elif file_extension == '.txt':
                     mime_type = 'text/plain'
                 else:
@@ -977,7 +1033,10 @@ class ProjectDataPipeline:
                 '.pdf': ['application/pdf'],
                 '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
                 '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
-                '.txt': ['text/plain']
+                '.txt': ['text/plain'],
+                '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+                '.xls':['application/vnd.ms-excel'],
+                '.csv':['text/csv'],
             }
             if mime_type not in mime_map.get(file_extension, []):
                 raise ValueError(f"File is not a valid {file_extension.upper()[1:]} (MIME type: {mime_type}, file: {s3_key})")
@@ -999,6 +1058,46 @@ class ProjectDataPipeline:
             elif file_extension == '.pptx':
                 prs = Presentation(io.BytesIO(file_data))
                 text = "\n".join([shape.text for slide in prs.slides for shape in slide.shapes if hasattr(shape, 'text') and shape.text])
+                extracted_info = self._process_text_with_gemini(text, sow_data)
+            elif file_extension == '.xlsx':
+                # Process XLSX file
+                workbook = openpyxl.load_workbook(io.BytesIO(file_data))
+                text_parts = []
+                for sheet_name in workbook.sheetnames:
+                    sheet = workbook[sheet_name]
+                    text_parts.append(f"Sheet: {sheet_name}")
+                    for row in sheet.iter_rows(values_only=True):
+                        row_text = "\t".join([str(cell) if cell is not None else "" for cell in row])
+                        if row_text.strip():
+                            text_parts.append(row_text)
+                text = "\n".join(text_parts)
+                extracted_info = self._process_text_with_gemini(text, sow_data)
+            elif file_extension == '.xls':
+                # Process XLS file
+                workbook = xlrd.open_workbook(file_contents=file_data)
+                text_parts = []
+                for sheet_index in range(workbook.nsheets):
+                    sheet = workbook.sheet_by_index(sheet_index)
+                    text_parts.append(f"Sheet: {sheet.name}")
+                    for row_index in range(sheet.nrows):
+                        row_values = []
+                        for col_index in range(sheet.ncols):
+                            cell_value = sheet.cell_value(row_index, col_index)
+                            row_values.append(str(cell_value) if cell_value != "" else "")
+                        row_text = "\t".join(row_values)
+                        if row_text.strip():
+                            text_parts.append(row_text)
+                text = "\n".join(text_parts)
+                extracted_info = self._process_text_with_gemini(text, sow_data)
+            elif file_extension == '.csv':
+                # Process CSV file
+                text = file_data.decode('utf-8', errors='ignore')
+                # Parse CSV to ensure proper formatting
+                csv_reader = csv.reader(io.StringIO(text))
+                formatted_rows = []
+                for row in csv_reader:
+                    formatted_rows.append("\t".join(row))
+                text = "\n".join(formatted_rows)
                 extracted_info = self._process_text_with_gemini(text, sow_data)
             elif file_extension == '.txt':
                 # Process TXT file - decode bytes to string

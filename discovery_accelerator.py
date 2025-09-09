@@ -94,7 +94,7 @@ class DiscoveryAccelerator:
                 # Extract filename from URL, handling query parameters
                 sow_filename = sow_path.split("/")[-1].split("?")[0]
                 file_extension = os.path.splitext(sow_filename)[1].lower()
-                if file_extension not in ['.pdf', '.docx', '.pptx']:
+                if file_extension not in ['.pdf', '.docx', '.pptx' ,'.txt' ,'.xlsx' , '.xls', '.csv' ]:
                     raise ValueError(f"Unsupported file format: {file_extension} for file: {sow_filename}")
                 logger.info(f"Extracted SOW filename: {sow_filename}")
                 sow_data = self.sow_parser.parse_sow(sow_file, filename=sow_filename)
@@ -123,7 +123,7 @@ class DiscoveryAccelerator:
                     doc_file = BytesIO(response.content)
                     doc_filename = doc_url.split("/")[-1].split("?")[0]
                     doc_extension = os.path.splitext(doc_filename)[1].lower()
-                    if doc_extension not in ['.pdf', '.docx', '.pptx']:
+                    if doc_extension not in ['.pdf', '.docx', '.pptx' ,'.txt' ]:
                         logger.warning(f"Skipping document {doc_filename} due to unsupported format: {doc_extension}")
                         continue
                     logger.info(f"Processing additional document: {doc_filename}")
@@ -540,7 +540,7 @@ class DiscoveryAccelerator:
                 # Extract and validate filename
                 doc_filename = doc_url.split("/")[-1].split("?")[0]
                 doc_extension = os.path.splitext(doc_filename)[1].lower()
-                if doc_extension not in ['.pdf', '.docx', '.pptx']:
+                if doc_extension not in ['.pdf', '.docx', '.pptx' ,'.txt']:
                     logger.warning(f"Skipping document {doc_filename} due to unsupported format: {doc_extension}")
                     invalid_urls.append({"url": doc_url, "error": f"Unsupported file format: {doc_extension}"})
                     continue

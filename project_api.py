@@ -362,7 +362,7 @@ async def process_documents(
         # Preserve original file extension
         sow_filename = sanitize_filename(sow_file.filename)
         file_extension = os.path.splitext(sow_filename)[1].lower()
-        if file_extension not in ['.pdf', '.docx', '.pptx']:
+        if file_extension not in ['.pdf', '.docx', '.pptx' ,'.txt','.xlsx' , '.xls', '.csv'  ]:
             raise HTTPException(status_code=400, detail=f"Unsupported file format: {file_extension}")
         s3_prefix = f"discovery_accelerator/uploads/{sanitize_filename(email)}/{project_name}/"
         sow_key = f"{s3_prefix}files/{sow_filename}"
@@ -378,7 +378,12 @@ async def process_documents(
                 ContentType=sow_file.content_type or {
                     '.pdf': 'application/pdf',
                     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    '.txt': 'text/plain',
+                    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    '.xls': 'application/vnd.ms-excel',
+                    '.csv': 'text/csv'
+                    
                 }.get(file_extension, 'application/octet-stream')
             )
         except s3_client.exceptions.ClientError as e:
@@ -399,7 +404,7 @@ async def process_documents(
                     continue
                 doc_filename = sanitize_filename(doc.filename)
                 doc_extension = os.path.splitext(doc_filename)[1].lower()
-                if doc_extension not in ['.pdf', '.docx', '.pptx']:
+                if doc_extension not in ['.pdf', '.docx', '.pptx' , '.txt']:
                     logger.warning(f"Skipping document {doc_filename} due to unsupported format: {doc_extension}")
                     continue
                 doc_key = f"{s3_prefix}additional_docs/files/{doc_filename}"
@@ -413,7 +418,9 @@ async def process_documents(
                         ContentType=doc.content_type or {
                             '.pdf': 'application/pdf',
                             '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                            '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                            '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                            '.txt': 'text/plain',
+
                         }.get(doc_extension, 'application/octet-stream')
                     )
                     additional_docs_keys.append(generate_presigned_url(S3_BUCKET, doc_key))
